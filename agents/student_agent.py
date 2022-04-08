@@ -1,4 +1,7 @@
 # Student agent: Add your own agent here
+from asyncio.windows_events import NULL
+from email.policy import default
+from inspect import stack
 from agents.agent import Agent
 from store import register_agent
 import numpy as np
@@ -29,13 +32,21 @@ class Node:
 """
 
 MAX, MIN = 1000, -1000
+
 @register_agent("student_agent")
 class StudentAgent(Agent):
+
+    depthg = 5 #default
+    num = 50 #default
+    stepcount = 0
+    uni = np.empty((0, 3), int)
+    
     """
     A dummy class for your implementation. Feel free to use this class to
     add any helper functionalities needed for your agent.
     """
-
+    
+    
     def __init__(self):
         super(StudentAgent, self).__init__()
         self.name = "StudentAgent"
@@ -50,6 +61,23 @@ class StudentAgent(Agent):
         self.autoplay = True
         #self.Tree = Tree();
         #self.Setup = False  # check if it is setuped
+
+
+    """
+    def __init__(self):
+        super(StudentAgent, self).__init__()
+        self.name = "StudentAgent"
+        self.dir_map = {
+            "u": 0,
+            "r": 1,
+            "d": 2,
+            "l": 3,
+        }
+        self.moves = ((-1, 0), (0, 1), (1, 0), (0, -1)) #urdl
+        self.opposites = {0: 2, 1: 3, 2: 0, 3: 1}
+        self.autoplay = True
+        self.uni = np.empty((0, 3), int)
+    """
     """
     def setup(self, chess_board, my_pos, adv_pos, max_step):
         # level order traversal
@@ -108,13 +136,66 @@ class StudentAgent(Agent):
                         queue.append(newNode)
         return
     """
+    def ltpo(self,chess_board):
+        #adapter
+        if chess_board.shape == (5, 5, 4):
+            
+            self.depthg = 4
+            
+            self.num = 40
+        if chess_board.shape == (6, 6, 4):
+            
+            self.depthg = 2
+            
+            self.num = 25
+        if chess_board.shape == (7, 7, 4):
+            
+            self.depthg = 2
+            
+            self.num = 14
+        if chess_board.shape == (8, 8, 4):
+            
+            self.depthg = 2
+            
+            self.num = 11
+        if chess_board.shape == (9, 9, 4):
+            
+            self.depthg = 2
+
+            self.num = 6
+        if chess_board.shape == (10, 10, 4):
+            
+            self.depthg = 2
+            
+            self.num = 5
+        if chess_board.shape == (11, 11, 4):
+            
+            self.depthg = 2
+            
+            self.num = 4
+        if chess_board.shape == (12, 12, 4):
+            
+            self.depthg = 2
+            
+            self.num = 3
+
     #alpha -1000 beta 1000
     def step(self, chess_board, my_pos, adv_pos, max_step):
         #print(self.heuristic_helper(chess_board,my_pos,adv_pos))
         #self.heuristic_computation(chess_board,my_pos,adv_pos)
         #input("here")
+        #start_time = time.time()
         bestval = MIN
         bestmove = None
+
+        self.ltpo(chess_board)
+        self.stepcount += 1
+        print(self.stepcount)
+        #print(self.depthg)
+        #print(self.num)
+        print(chess_board.shape)
+        
+
         uniquemoves = self.ordermoves(chess_board,my_pos,adv_pos,max_step)
         for uniquemove in uniquemoves:
             copy = deepcopy(chess_board)
@@ -127,7 +208,19 @@ class StudentAgent(Agent):
             if(val > bestval):
                 bestval = val
                 bestmove = (x,y),dir
+        #print("--- %s seconds ---" % (time.time() - start_time))
         return bestmove
+        """
+        start_time = time.time()
+        self.unique_iterative(chess_board,my_pos,adv_pos,max_step,0)
+        print("--- %s seconds ---" % (time.time() - start_time))
+        print(self.uni.shape)
+        x = self.uniquemoves(chess_board,my_pos,adv_pos,max_step)
+        print(x.shape)
+        idx = (x[:, None] != self.uni).any(-1).all(1)
+        print(x[idx])
+        input("PPP")
+        """
 
 
     def minimax(self, depth, maximizingPlayer, chess_board, my_pos, adv_pos, max_steps, alpha, beta):
@@ -138,7 +231,7 @@ class StudentAgent(Agent):
         if end:
             #print("Here")
             return self.whowin(p0_score,p1_score)
-        if depth == 2:
+        if depth == self.depthg:
             toreturn = self.heuristic_computation(chess_board1, my_pos, adv_pos)
             #print(toreturn)
             return toreturn
@@ -178,6 +271,52 @@ class StudentAgent(Agent):
                         break
                 return best
 
+
+    """
+    def unique_iterative(self,chess_board, my_pos, adv_pos, max_steps,cursteps):
+        r,c = my_pos
+        uniq = np.empty((0, 1), int)
+        if cursteps > max_steps:
+            return True #base case
+        for j in self.dir_map:
+            barrier_dir = self.dir_map[j]
+            if chess_board[r, c, barrier_dir]:
+                continue
+            self.uni = np.vstack((self.uni, np.array([r, c, barrier_dir])))
+
+        for i in range(len(self.moves)):
+            move = self.moves[i]
+            next_pos = tuple(map(lambda i, j: i + j, my_pos, move))
+            z,y = next_pos
+            if (not chess_board[r,c,i] and next_pos != adv_pos and [z,y] not in self.uni[:, :2].tolist()):
+                #print(self.uni[:, :2].tolist())
+                #time.sleep(10000)
+                #continue
+                return np.vstack((uniq, self.unique_iterative(chess_board,next_pos,adv_pos,max_steps,cursteps + 1)))
+        
+    """
+    """
+    def unique_iterative(self,chess_board, my_pos, adv_pos, max_steps,cursteps):
+        r,c = my_pos
+        
+        if cursteps > max_steps:
+            return  #done
+        for j in self.dir_map:
+            barrier_dir = self.dir_map[j]
+            if chess_board[r, c, barrier_dir] or (any(np.array_equal(x, np.array([r,c,barrier_dir])) for x in self.uni)):
+                continue
+            self.uni = np.vstack((self.uni, np.array([r, c, barrier_dir])))
+        for i in range(len(self.moves)):
+            move = self.moves[i]
+            next_pos = tuple(map(lambda a, b: a + b, my_pos, move))
+            z,y = next_pos
+            if (not chess_board[r,c,i] and not next_pos == adv_pos):
+                #print(self.uni[:, :2].tolist())
+                #time.sleep(10000)
+                #continue
+                self.unique_iterative(chess_board,next_pos,adv_pos,max_steps,cursteps + 1)
+    """
+
     def whowin(self,p0_score,p1_score):
         if (p0_score > p1_score):
             # print("Win")
@@ -190,12 +329,25 @@ class StudentAgent(Agent):
             # print("Tie")
             return 0
 
+
+    
     def ordermoves(self,chess_board, my_pos, adv_pos, max_steps):
         x = self.uniquemoves(chess_board,my_pos,adv_pos,max_steps)
         #print(x.shape)
         np.random.shuffle(x)
-        y = x[:10]
+        y = x[:self.num]
         return y
+    
+    """
+    def ordermoves(self,chess_board, my_pos, adv_pos, max_steps):
+        self.uni = np.empty((0, 3), int)
+        self.unique_iterative(chess_board,my_pos,adv_pos,max_steps,0)
+        x = deepcopy(self.uni)
+        #x = self.uniquemoves(chess_board,my_pos,adv_pos,max_steps)
+        np.random.shuffle(x)
+        y = x[:20]
+        return y
+    """
 
     def randommoves(self):
         return
@@ -264,6 +416,44 @@ class StudentAgent(Agent):
         #print("--- %s seconds ---" % (time.time() - start_time))
         return toreturn
 
+    stack = NULL
+    def uniquemove(self, chess_board, my_pos, adv_pos, cur_step, max_steps):
+            #start_time = time.time()
+            if cur_step == 0:
+                #initialize
+                stack = NULL
+            if cur_step == max_steps:
+                #base case
+                return stack
+            else:
+                curx, cury = my_pos
+                for steps in range(max_steps + 1):
+                    for x in range(steps * -1, steps + 1):  # ...
+                        y = steps - abs(x)
+                        checkx = curx + x
+                        checky = cury + y
+                        checky2 = cury - y
+                        check_right = self.check_reachable(chess_board, max_steps, adv_pos, my_pos, np.array([checkx, checky]))
+                        check_left = self.check_reachable(chess_board, max_steps, adv_pos, my_pos, np.array([checkx, checky2]))
+                        if (check_left):
+                            for dir in self.dir_map:
+                                if ((not chess_board[checkx, checky2, self.dir_map[dir]]) and ([checkx, checky2, self.dir_map[dir]]
+                                        not in stack.tolist())):
+                                    # print(np.array([checkx,checky2,dir]))
+                                    stack = np.vstack((stack, np.array([checkx, checky2, self.dir_map[dir]])))
+                                    return self.uniquemove(self, chess_board, (curx,cury+1), adv_pos, cur_step+1, max_steps)
+                        if (check_right):
+                            for dir in self.dir_map:
+                                if ((not chess_board[checkx, checky, self.dir_map[dir]]) and ([checkx, checky, self.dir_map[dir]]
+                                        not in stack.tolist())):
+                                    # print(np.array([checkx, checky2, dir]))
+                                    stack = np.vstack((stack, np.array([checkx, checky, self.dir_map[dir]])))
+                                    return self.uniquemove(self, chess_board, (curx,cury-1), adv_pos, cur_step+1, max_steps)
+
+                # print(toreturn)
+        #print("--- %s seconds ---" % (time.time() - start_time))
+                
+
     def check_endgame(self, board, my_pos, adv_pos):
         father = dict()
         board_size = board.shape[0]
@@ -320,7 +510,7 @@ class StudentAgent(Agent):
         # Set the opposite barrier to True
         move = self.moves[dir]
         board[r + move[0], c + move[1], self.opposites[dir]] = True
-        return board;
+        return board
 
     def covert(self,board):
         sizex = board.shape[0]
@@ -359,7 +549,7 @@ class StudentAgent(Agent):
     # only add to down and right
     # winscore / num of ways of ending
     def heuristic_helper(self,board,mypos,advpos):
-        start_time = time.time()
+        #start_time = time.time()
         moves = []
         size = board.shape[0]
         maxbarrier = 0
@@ -432,6 +622,7 @@ class StudentAgent(Agent):
             #board = deepcopy(board)
             for barrier in move:
                 x,y,dir = barrier
+                break
                 #board = self.set_barrier(x,y,dir,board)
             if(dir == 2):
                 playerup = False
@@ -491,4 +682,3 @@ class StudentAgent(Agent):
                 #time.sleep(100000)
                 return 0 #game ends
         return netwin/game
-
